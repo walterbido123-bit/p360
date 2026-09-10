@@ -1,23 +1,48 @@
-### AL ###
-#Template for AL projects for Dynamics 365 Business Central
-#launch.json folder
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Next.js / builds
+.next/
+out/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Local runtime data
+.n8n/
+postgres_data/
+redis_data/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE / OS
 .vscode/
-#Cache folder
-.alcache/
-#Symbols folder
-.alpackages/
-#Snapshots folder
-.snapshots/
-#Testing Output folder
-.output/
-#Extension App-file
-*.app
-#Rapid Application Development File
-rad.json
-#Translation Base-file
-*.g.xlf
-#License-files
-*.bclicense
-*.flf
-#Test results file
-TestResults.xml
+.idea/
+.DS_Store
+Thumbs.db
+
+# Vercel / Cloudflare
+.vercel/
+.wrangler/
+.dev.vars
+
+# Testing
+playwright-report/
+test-results/
+
+# Temporary
+.tmp/
+tmp/
