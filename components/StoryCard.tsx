@@ -1,0 +1,3 @@
+import Link from 'next/link';
+import type { Story } from '@/lib/content';
+export function StoryCard({story,large=false}:{story:Story;large?:boolean}){return <article className={`story ${large?'storyLarge':''}`}><div className="storyMedia" aria-hidden="true"><span>{story.category}</span></div><div className="storyBody"><span className="kicker">{story.category}</span><h3><Link href={`/noticia/${story.slug}`}>{story.title}</Link></h3><p>{story.excerpt}</p><time dateTime={story.publishedAt}>{new Intl.DateTimeFormat('es',{dateStyle:'medium'}).format(new Date(`${story.publishedAt}T12:00:00`))}</time></div></article>}
