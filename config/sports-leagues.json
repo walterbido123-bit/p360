@@ -1,0 +1,6 @@
+{
+  "football":{"provider":"api-football","verified":{"premier-league":39,"la-liga":140,"bundesliga":78,"serie-a":135,"ligue-1":61,"eredivisie":88,"eliteserien":103,"mls":253,"champions-league":2}},
+  "baseball":{"mlb":{"provider":"mlb-statsapi","sportId":1},"caribbean":{"provider":"api-baseball","competitions":{"lidom":{"country":"Dominican Republic","providerLeagueId":null},"lbprc":{"country":"Puerto Rico","providerLeagueId":null},"lvbp":{"country":"Venezuela","providerLeagueId":null},"mexico-winter":{"country":"Mexico","providerLeagueId":null}}}},
+  "basketball":{"nba":{"provider":"sportsdataio","competition":"NBA"}},
+  "notes":"Null Caribbean provider IDs are deliberate. League coverage was verified from provider catalog; IDs must be resolved through the authenticated API before activation."
+}
