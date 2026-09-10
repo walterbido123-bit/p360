@@ -1,0 +1,19 @@
+{
+  "name": "periodismo360-web-pipeline",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "skills:validate": "node scripts/validate-skills.mjs",
+    "pipeline:plan": "node scripts/orchestrator.mjs plan",
+    "pipeline:run": "node scripts/orchestrator.mjs run",
+    "figma:sync": "node scripts/figma-sync.mjs",
+    "qa": "node scripts/qa.mjs",
+    "deploy": "node scripts/deploy.mjs",
+    "wordpress:publish": "node scripts/wordpress-publish.mjs",
+    "ci": "npm run skills:validate && npm run qa"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
