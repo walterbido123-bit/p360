@@ -1,0 +1,51 @@
+name: Periodismo360 Web Pipeline
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      deploy:
+        description: Deploy after QA
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  validate-and-qa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - run: npm run skills:validate
+      - run: npm run pipeline:plan
+      - run: npm run qa
+        env:
+          QA_LINT_COMMAND: ${{ vars.QA_LINT_COMMAND }}
+          QA_TEST_COMMAND: ${{ vars.QA_TEST_COMMAND }}
+          QA_TYPECHECK_COMMAND: ${{ vars.QA_TYPECHECK_COMMAND }}
+          QA_A11Y_COMMAND: ${{ vars.QA_A11Y_COMMAND }}
+          QA_SEO_COMMAND: ${{ vars.QA_SEO_COMMAND }}
+          QA_PERF_COMMAND: ${{ vars.QA_PERF_COMMAND }}
+          QA_SECURITY_COMMAND: ${{ vars.QA_SECURITY_COMMAND }}
+
+  deploy:
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.deploy == true)
+    needs: validate-and-qa
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - run: npm run deploy
+        env:
+          DEPLOY_COMMAND: ${{ vars.DEPLOY_COMMAND }}
