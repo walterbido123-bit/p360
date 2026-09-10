@@ -1,0 +1,24 @@
+{
+  "name": "Periodismo360 Web Delivery Pipeline",
+  "entrySkill": "skills/web-development/00-web-orchestrator/SKILL.md",
+  "stages": [
+    {"id":"plan","skills":["00-web-orchestrator","01-web-architect","02-ux-researcher","03-ui-designer","04-design-system"]},
+    {"id":"figma","optional":true,"skills":["05-figma-to-code"]},
+    {"id":"code","skills":["06-frontend-developer","07-nextjs-developer","08-backend-developer","09-database-architect","10-api-integrations","11-wordpress-developer","12-news-portal-builder","13-ai-web-integration"]},
+    {"id":"qa","skills":["14-technical-seo","15-web-performance","16-web-security","17-accessibility","18-qa-testing"]},
+    {"id":"deploy","skills":["19-devops-deployment","20-github-workflow"]},
+    {"id":"audit","skills":["21-website-auditor","22-website-redesign"]},
+    {"id":"wordpress","optional":true,"skills":["11-wordpress-developer","12-news-portal-builder"]}
+  ],
+  "commands": {
+    "build": "${BUILD_COMMAND}",
+    "test": "${TEST_COMMAND}",
+    "lint": "${LINT_COMMAND}",
+    "deploy": "${DEPLOY_COMMAND}"
+  },
+  "qualityGates": {
+    "requireSkills": 23,
+    "failOnCommandError": true,
+    "requireWordPressDryRunBeforePublish": true
+  }
+}
