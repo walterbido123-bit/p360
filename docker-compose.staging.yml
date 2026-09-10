@@ -1,0 +1,76 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: p360_staging
+      POSTGRES_USER: p360_staging
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
+    volumes: [postgres_staging:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL","pg_isready -U p360_staging -d p360_staging"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server","--appendonly","yes"]
+    volumes: [redis_staging:/data]
+    healthcheck:
+      test: ["CMD","redis-cli","ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  source-engine:
+    build:
+      context: .
+      dockerfile: services/source-engine/Dockerfile
+    environment:
+      PORT: 3003
+      DATABASE_URL: postgresql://p360_staging:${POSTGRES_PASSWORD}@postgres:5432/p360_staging
+      REDIS_URL: redis://redis:6379
+      SOURCE_SERVICE_TOKEN: ${SOURCE_SERVICE_TOKEN:?required}
+      API_FOOTBALL_KEY: ${API_FOOTBALL_KEY:-}
+      API_BASEBALL_KEY: ${API_BASEBALL_KEY:-}
+      SPORTSDATAIO_KEY: ${SPORTSDATAIO_KEY:-}
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    ports: ["127.0.0.1:3003:3003"]
+  editorial-engine:
+    build:
+      context: .
+      dockerfile: agents/editorial-engine/Dockerfile
+    environment:
+      PORT: 3002
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_EDITORIAL_MODEL: ${OPENAI_EDITORIAL_MODEL:-gpt-5.6}
+      AGENT_SERVICE_TOKEN: ${AGENT_SERVICE_TOKEN:?required}
+    ports: ["127.0.0.1:3002:3002"]
+  n8n:
+    image: n8nio/n8n:latest
+    environment:
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: p360_staging
+      DB_POSTGRESDB_USER: p360_staging
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD:?required}
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:?required}
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_PERSONALIZATION_ENABLED: "false"
+      SOURCE_SERVICE_URL: http://source-engine:3003
+      SOURCE_SERVICE_TOKEN: ${SOURCE_SERVICE_TOKEN:?required}
+      AGENT_SERVICE_URL: http://editorial-engine:3002
+      AGENT_SERVICE_TOKEN: ${AGENT_SERVICE_TOKEN:?required}
+      PUBLISHING_ENABLED: "false"
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      source-engine: {condition: service_started}
+      editorial-engine: {condition: service_started}
+    ports: ["127.0.0.1:5678:5678"]
+    volumes: [n8n_staging:/home/node/.n8n]
+volumes:
+  postgres_staging:
+  redis_staging:
+  n8n_staging:
