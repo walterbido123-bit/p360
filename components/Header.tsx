@@ -1,0 +1,3 @@
+import Link from 'next/link';
+import { categories } from '@/lib/content';
+export function Header(){return <><div className="breaking"><strong>Últimas Noticias</strong><span>Periodismo360 — información con visión 360°</span></div><header className="siteHeader"><div className="brandRow"><Link href="/" className="brand" aria-label="Periodismo360 inicio"><span>PERIODISMO</span><b>360</b></Link><span className="tagline">Noticias · Análisis · Deportes · Tecnología</span></div><nav aria-label="Navegación principal"><Link href="/">Inicio</Link>{categories.map(c=><Link key={c} href={`/categoria/${encodeURIComponent(c.toLowerCase())}`}>{c}</Link>)}</nav></header></>}
