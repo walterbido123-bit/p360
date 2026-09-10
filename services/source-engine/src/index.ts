@@ -1,0 +1,6 @@
+import Fastify from "fastify";import {timingSafeEqual}from"node:crypto";import {fetchRss}from"./rss.js";import{normalizeItem}from"./normalize.js";import{editorialEligibility}from"./scoring.js";import type{SourceConfig}from"./types.js";
+const app=Fastify({logger:true});
+function authorized(value?:string){const expected=process.env.SOURCE_SERVICE_TOKEN;if(!expected||!value?.startsWith("Bearer "))return false;const a=Buffer.from(expected),b=Buffer.from(value.slice(7));return a.length===b.length&&timingSafeEqual(a,b);}
+app.get("/health",async()=>({service:"p360-source-engine",status:"ok"}));
+app.post("/v1/ingest/rss",async(req,reply)=>{if(!authorized(req.headers.authorization))return reply.code(401).send({error:"unauthorized"});const source=req.body as SourceConfig;if(source.kind!=="rss"||!source.enabled)return reply.code(400).send({error:"source_not_enabled_or_not_rss"});try{const raw=await fetchRss(source);const items=raw.map(x=>normalizeItem(x,source)).map(item=>({...item,eligibility:editorialEligibility(item.sourceScore)}));return{sourceId:source.id,count:items.length,items};}catch(error){req.log.error({err:error,sourceId:source.id},"source ingest failed");return reply.code(502).send({error:"source_ingest_failed",sourceId:source.id});}});
+app.listen({port:Number(process.env.PORT??3003),host:"0.0.0.0"}).catch(e=>{app.log.error(e);process.exit(1)});
