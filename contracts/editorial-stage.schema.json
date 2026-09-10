@@ -1,0 +1,14 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "title":"Periodismo360 Editorial Stage Request",
+  "type":"object",
+  "required":["workflowId","eventId","input"],
+  "properties":{
+    "workflowId":{"type":"string","minLength":1},
+    "eventId":{"type":"string","minLength":1},
+    "input":{"type":"object"},
+    "sources":{"type":"array","items":{"type":"object","required":["url","publisher"],"properties":{"url":{"type":"string","format":"uri"},"publisher":{"type":"string"},"publishedAt":{"type":"string"},"evidence":{"type":"string"}},"additionalProperties":false}},
+    "dryRun":{"type":"boolean","default":false}
+  },
+  "additionalProperties":false
+}
