@@ -1,0 +1,5 @@
+[
+ {"id":"p360-rss","name":"Periodismo360","kind":"rss","url":"https://periodismo360.com/feed/","publisher":"Periodismo360","desk":"actualidad","geography":"DO","tier":"primary","enabled":false,"pollMinutes":10},
+ {"id":"whitehouse","name":"The White House","kind":"rss","url":"https://www.whitehouse.gov/news/feed/","publisher":"The White House","desk":"globales","geography":"US","tier":"primary","enabled":false,"pollMinutes":15},
+ {"id":"ec-europa","name":"European Commission Press Corner","kind":"rss","url":"https://ec.europa.eu/commission/presscorner/api/rss?language=en","publisher":"European Commission","desk":"globales","geography":"EU","tier":"primary","enabled":false,"pollMinutes":20}
+]
