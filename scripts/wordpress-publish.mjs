@@ -1,0 +1,12 @@
+import fs from 'node:fs';
+import { requiredEnv } from './lib.mjs';
+requiredEnv(['WP_BASE_URL','WP_USERNAME','WP_APP_PASSWORD','WP_POST_FILE']);
+if(process.env.WP_PUBLISH!=='true') throw new Error('Refusing publish: set WP_PUBLISH=true after dry-run/review.');
+const post=JSON.parse(fs.readFileSync(process.env.WP_POST_FILE,'utf8'));
+if(!post.title||!post.content) throw new Error('WordPress payload requires title and content.');
+const auth=Buffer.from(`${process.env.WP_USERNAME}:${process.env.WP_APP_PASSWORD}`).toString('base64');
+const endpoint=`${process.env.WP_BASE_URL.replace(/\/$/,'')}/wp-json/wp/v2/posts`;
+const r=await fetch(endpoint,{method:'POST',headers:{Authorization:`Basic ${auth}`,'Content-Type':'application/json'},body:JSON.stringify({...post,status:post.status||'draft'})});
+if(!r.ok) throw new Error(`WordPress API ${r.status}: ${await r.text()}`);
+const out=await r.json();
+console.log(`WordPress post created: id=${out.id} status=${out.status} link=${out.link||''}`);
