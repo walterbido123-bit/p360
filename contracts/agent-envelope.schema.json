@@ -1,0 +1,17 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "title":"Periodismo360 Agent Envelope",
+  "type":"object",
+  "required":["workflowId","eventId","agent","stage","createdAt","payload"],
+  "properties":{
+    "workflowId":{"type":"string","minLength":1},
+    "eventId":{"type":"string","minLength":1},
+    "agent":{"type":"string","enum":["supervisor","ingest","dedupe","research","classifier","writer","editor","factcheck","seo","multimedia","publisher"]},
+    "stage":{"type":"string","enum":["requested","running","completed","failed","human_review"]},
+    "createdAt":{"type":"string","format":"date-time"},
+    "attempt":{"type":"integer","minimum":1},
+    "payload":{"type":"object"},
+    "provenance":{"type":"array","items":{"type":"object","required":["url"],"properties":{"url":{"type":"string","format":"uri"},"publisher":{"type":"string"}}}}
+  },
+  "additionalProperties":false
+}
