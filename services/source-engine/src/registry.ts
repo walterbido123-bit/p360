@@ -1,0 +1,3 @@
+import type { SourceConfig } from "./types.js";
+const tiers=new Set(["primary","high","standard","unverified"]),kinds=new Set(["rss","api","webhook","sports_api"]);
+export function validateRegistry(value:unknown):SourceConfig[]{if(!Array.isArray(value))throw new Error("Source registry must be an array");const ids=new Set<string>();return value.map((raw:any)=>{if(!raw?.id||ids.has(raw.id))throw new Error(`Invalid or duplicate source id: ${raw?.id}`);ids.add(raw.id);if(!kinds.has(raw.kind)||!tiers.has(raw.tier)||!raw.url||!raw.publisher)throw new Error(`Invalid source: ${raw.id}`);return raw as SourceConfig;});}
