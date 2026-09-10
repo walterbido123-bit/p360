@@ -1,0 +1,8 @@
+[
+  {"id":"example-primary","name":"Official/primary source example","kind":"rss","url":"https://example.org/feed.xml","publisher":"Example Institution","desk":"actualidad","geography":"international","tier":"primary","enabled":false,"pollMinutes":10},
+  {"id":"example-news","name":"High-trust newsroom example","kind":"rss","url":"https://example.com/rss","publisher":"Example Newsroom","desk":"globales","geography":"international","tier":"high","enabled":false,"pollMinutes":10},
+  {"id":"football-api","name":"Football API adapter placeholder","kind":"sports_api","url":"env:FOOTBALL_API_URL","publisher":"Configured sports provider","desk":"deportes","geography":"international","tier":"high","enabled":false,"pollMinutes":5},
+  {"id":"mlb-api","name":"MLB adapter placeholder","kind":"sports_api","url":"env:MLB_API_URL","publisher":"Configured sports provider","desk":"deportes","geography":"usa","tier":"high","enabled":false,"pollMinutes":5},
+  {"id":"nba-api","name":"NBA adapter placeholder","kind":"sports_api","url":"env:NBA_API_URL","publisher":"Configured sports provider","desk":"deportes","geography":"usa","tier":"high","enabled":false,"pollMinutes":5},
+  {"id":"caribbean-baseball","name":"Caribbean baseball adapter placeholder","kind":"sports_api","url":"env:CARIBBEAN_BASEBALL_API_URL","publisher":"Configured sports provider","desk":"deportes","geography":"caribbean","tier":"standard","enabled":false,"pollMinutes":10}
+]
