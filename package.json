@@ -7,7 +7,6 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "skills:validate": "node scripts/validate-skills.mjs",
     "pipeline:plan": "node scripts/orchestrator.mjs plan",
@@ -17,17 +16,17 @@
     "deploy": "node scripts/deploy.mjs",
     "wordpress:publish": "node scripts/wordpress-publish.mjs",
     "security:audit": "npm audit --audit-level=high",
-    "ci": "npm run skills:validate && npm run typecheck && npm run build && npm run security:audit"
+    "ci": "npm run skills:validate && npm run typecheck && npm run build && npm run security:audit && npm run qa"
   },
   "dependencies": {
-    "next": "15.5.25",
-    "react": "19.1.1",
-    "react-dom": "19.1.1"
+    "next": "16.3.4",
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
   },
   "devDependencies": {
     "@types/node": "24.3.1",
-    "@types/react": "19.1.12",
-    "@types/react-dom": "19.1.9",
+    "@types/react": "19.2.2",
+    "@types/react-dom": "19.2.2",
     "typescript": "5.9.2"
   },
   "engines": {
