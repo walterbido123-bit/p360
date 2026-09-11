@@ -73,7 +73,7 @@ const wpBase = new URL(process.env.WORDPRESS_READ_URL || '');
 if (wpBase.protocol !== 'https:' || wpBase.hostname !== 'periodismo360.com') {
   throw new Error('WORDPRESS_READ_URL must be the approved read-only production origin');
 }
-const wpResponse = await fetch(new URL('/wp-json/wp/v2/posts?per_page=1&_fields=id,slug', wpBase), {
+const wpResponse = await fetch(new URL('/index.php?rest_route=%2Fwp%2Fv2%2Fposts&per_page=1&_fields=id%2Cslug', wpBase), {
   method: 'GET',
   redirect: 'error',
   signal: AbortSignal.timeout(10_000),
