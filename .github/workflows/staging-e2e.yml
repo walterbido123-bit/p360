@@ -4,17 +4,16 @@ on:
   workflow_dispatch:
     inputs:
       staging_url:
-        description: Existing staging URL to test (leave empty to use STAGING_URL variable)
-        required: false
+        description: Existing isolated staging URL to test
+        required: true
         type: string
-      deploy_staging:
-        description: Run configured staging deploy command first
-        required: false
-        default: false
-        type: boolean
 
 permissions:
   contents: read
+
+concurrency:
+  group: periodismo360-staging-e2e
+  cancel-in-progress: false
 
 env:
   WORDPRESS_READ_URL: https://periodismo360.com
@@ -22,43 +21,26 @@ env:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
         with:
           node-version: 24
-      - run: npm install --package-lock-only --ignore-scripts
-      - run: npm ci
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run skills:validate
       - run: npm run typecheck
       - run: npm run build
         env:
-          NEXT_PUBLIC_SITE_URL: ${{ inputs.staging_url || vars.STAGING_URL || 'http://localhost:3000' }}
+          NEXT_PUBLIC_SITE_URL: ${{ inputs.staging_url }}
       - run: npm run security:audit
-      - run: npm run qa
-        env:
-          QA_TYPECHECK_COMMAND: npm run typecheck
-          QA_SECURITY_COMMAND: npm run security:audit
-
-  deploy-staging:
-    if: inputs.deploy_staging == true
-    needs: verify
-    runs-on: ubuntu-latest
-    environment: staging
-    steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 24
-      - run: npm install --package-lock-only --ignore-scripts
-      - run: npm ci
-      - run: npm run deploy
-        env:
-          DEPLOY_COMMAND: ${{ vars.STAGING_DEPLOY_COMMAND }}
 
   e2e:
-    needs: [verify, deploy-staging]
-    if: always() && needs.verify.result == 'success' && (needs.deploy-staging.result == 'success' || needs.deploy-staging.result == 'skipped')
+    needs: verify
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: staging
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -66,4 +48,6 @@ jobs:
           node-version: 24
       - run: npm run e2e:smoke
         env:
-          E2E_BASE_URL: ${{ inputs.staging_url || vars.STAGING_URL }}
+          E2E_BASE_URL: ${{ inputs.staging_url }}
+          E2E_ALLOWED_HOST: ${{ vars.STAGING_ALLOWED_HOST }}
+          WORDPRESS_READ_URL: https://periodismo360.com
