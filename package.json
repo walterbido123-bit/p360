@@ -16,10 +16,11 @@
     "qa": "node scripts/qa.mjs",
     "deploy": "node scripts/deploy.mjs",
     "wordpress:publish": "node scripts/wordpress-publish.mjs",
-    "ci": "npm run skills:validate && npm run typecheck && npm run build"
+    "security:audit": "npm audit --audit-level=high",
+    "ci": "npm run skills:validate && npm run typecheck && npm run build && npm run security:audit"
   },
   "dependencies": {
-    "next": "15.5.2",
+    "next": "15.5.7",
     "react": "19.1.1",
     "react-dom": "19.1.1"
   },
