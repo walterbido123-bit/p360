@@ -13,6 +13,7 @@
     "pipeline:run": "node scripts/orchestrator.mjs run",
     "figma:sync": "node scripts/figma-sync.mjs",
     "qa": "node scripts/qa.mjs",
+    "e2e:smoke": "node scripts/e2e-smoke.mjs",
     "deploy": "node scripts/deploy.mjs",
     "wordpress:publish": "node scripts/wordpress-publish.mjs",
     "security:audit": "npm audit --audit-level=high",
