@@ -1,9 +1,13 @@
 {
-  "name": "periodismo360-web-pipeline",
-  "version": "1.0.0",
+  "name": "periodismo360",
+  "version": "2.0.0-baseline",
   "private": true,
   "type": "module",
   "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
     "skills:validate": "node scripts/validate-skills.mjs",
     "pipeline:plan": "node scripts/orchestrator.mjs plan",
     "pipeline:run": "node scripts/orchestrator.mjs run",
@@ -11,9 +15,21 @@
     "qa": "node scripts/qa.mjs",
     "deploy": "node scripts/deploy.mjs",
     "wordpress:publish": "node scripts/wordpress-publish.mjs",
-    "ci": "npm run skills:validate && npm run qa"
+    "security:audit": "npm audit --audit-level=high",
+    "ci": "npm run skills:validate && npm run typecheck && npm run build && npm run security:audit && npm run qa"
+  },
+  "dependencies": {
+    "next": "16.3.4",
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
+  },
+  "devDependencies": {
+    "@types/node": "24.3.1",
+    "@types/react": "19.2.2",
+    "@types/react-dom": "19.2.2",
+    "typescript": "5.9.2"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=24"
   }
 }
