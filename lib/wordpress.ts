@@ -35,8 +35,9 @@ export async function getStory(slug:string):Promise<Story|null>{const rows=await
 export async function getStoriesByCategory(slug:string,limit=18):Promise<{category:Category;stories:Story[]}|null>{
  const category=categoryFromSlug(slug); if(!category)return null;
  const cats=await wpFetch<WPCategory[]>(`/categories?slug=${encodeURIComponent(slug)}`);
- let wpCat=cats[0];
- if(!wpCat){const all=await wpFetch<WPCategory[]>('/categories?per_page=100');wpCat=all.find(c=>categorySlug(c.name as Category)===slug);}
+ const exact=cats[0];
+ const all=exact?[]:await wpFetch<WPCategory[]>('/categories?per_page=100');
+ const wpCat:WPCategory|undefined=exact??all.find(c=>categorySlug(c.name as Category)===slug);
  if(!wpCat)return {category,stories:[]};
  const posts=await wpFetch<WPPost[]>(`/posts?categories=${wpCat.id}&per_page=${limit}&_embed=1`);
  return {category,stories:posts.map(toStory)};
