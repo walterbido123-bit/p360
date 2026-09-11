@@ -40,7 +40,7 @@ jobs:
           QA_SECURITY_COMMAND: npm run security:audit
 
   deploy:
-    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.deploy == true)
+    if: github.event_name == 'workflow_dispatch' && inputs.deploy == true
     needs: validate-and-qa
     runs-on: ubuntu-latest
     environment: production
