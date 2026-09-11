@@ -2,7 +2,6 @@ import type { Category, Story } from './content';
 import { categoryFromSlug, categorySlug } from './content';
 
 const WP_BASE=(process.env.WORDPRESS_READ_URL||'https://periodismo360.com').replace(/\/$/,'');
-const API=`${WP_BASE}/wp-json/wp/v2`;
 
 type Rendered={rendered:string};
 type WPCategory={id:number;name:string;slug:string};
@@ -14,7 +13,8 @@ const text=(html='')=>html.replace(/<script[\s\S]*?<\/script>/gi,'').replace(/<s
 const safeHtml=(html='')=>html.replace(/<script[\s\S]*?<\/script>/gi,'').replace(/<iframe[\s\S]*?<\/iframe>/gi,'').replace(/\son\w+=("[^"]*"|'[^']*')/gi,'').replace(/javascript:/gi,'');
 
 async function wpFetch<T>(path:string,revalidate=300):Promise<T>{
- const url=`${API}${path}`;
+ const [route,query='']=path.split('?');
+ const url=`${WP_BASE}/index.php?rest_route=${encodeURIComponent(`/wp/v2${route}`)}${query?`&${query}`:''}`;
  const r=await fetch(url,{headers:{Accept:'application/json','User-Agent':'Periodismo360-Frontend/2.0'},next:{revalidate}});
  if(!r.ok) throw new Error(`WordPress read API ${r.status} for ${path}`);
  const contentType=r.headers.get('content-type')||'';
