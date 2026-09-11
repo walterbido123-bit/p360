@@ -1,0 +1,53 @@
+name: Periodismo360 Staging E2E
+
+on:
+  workflow_dispatch:
+    inputs:
+      staging_url:
+        description: Existing isolated staging URL to test
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: periodismo360-staging-e2e
+  cancel-in-progress: false
+
+env:
+  WORDPRESS_READ_URL: https://periodismo360.com
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run skills:validate
+      - run: npm run typecheck
+      - run: npm run build
+        env:
+          NEXT_PUBLIC_SITE_URL: ${{ inputs.staging_url }}
+      - run: npm run security:audit
+
+  e2e:
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: staging
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      - run: npm run e2e:smoke
+        env:
+          E2E_BASE_URL: ${{ inputs.staging_url }}
+          E2E_ALLOWED_HOST: ${{ vars.STAGING_ALLOWED_HOST }}
+          WORDPRESS_READ_URL: https://periodismo360.com

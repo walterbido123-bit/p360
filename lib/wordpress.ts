@@ -2,7 +2,6 @@ import type { Category, Story } from './content';
 import { categoryFromSlug, categorySlug } from './content';
 
 const WP_BASE=(process.env.WORDPRESS_READ_URL||'https://periodismo360.com').replace(/\/$/,'');
-const API=`${WP_BASE}/wp-json/wp/v2`;
 
 type Rendered={rendered:string};
 type WPCategory={id:number;name:string;slug:string};
@@ -14,7 +13,8 @@ const text=(html='')=>html.replace(/<script[\s\S]*?<\/script>/gi,'').replace(/<s
 const safeHtml=(html='')=>html.replace(/<script[\s\S]*?<\/script>/gi,'').replace(/<iframe[\s\S]*?<\/iframe>/gi,'').replace(/\son\w+=("[^"]*"|'[^']*')/gi,'').replace(/javascript:/gi,'');
 
 async function wpFetch<T>(path:string,revalidate=300):Promise<T>{
- const url=`${API}${path}`;
+ const [route,query='']=path.split('?');
+ const url=`${WP_BASE}/index.php?rest_route=${encodeURIComponent(`/wp/v2${route}`)}${query?`&${query}`:''}`;
  const r=await fetch(url,{headers:{Accept:'application/json','User-Agent':'Periodismo360-Frontend/2.0'},next:{revalidate}});
  if(!r.ok) throw new Error(`WordPress read API ${r.status} for ${path}`);
  const contentType=r.headers.get('content-type')||'';
@@ -39,6 +39,10 @@ function toStory(p:WPPost):Story{
 }
 
 export async function getLatestStories(limit=12):Promise<Story[]>{return (await wpFetchOr<WPPost[]>(`/posts?per_page=${limit}&_embed=1`,[])).map(toStory);}
+export async function getSitemapStories(limit=50):Promise<Array<{slug:string;publishedAt:string;modifiedAt:string}>>{
+ const posts=await wpFetchOr<Array<Pick<WPPost,'slug'|'date'|'modified'>>>(`/posts?per_page=${limit}&_fields=slug,date,modified`,[]);
+ return posts.map(p=>({slug:p.slug,publishedAt:p.date,modifiedAt:p.modified}));
+}
 export async function getStory(slug:string):Promise<Story|null>{const rows=await wpFetchOr<WPPost[]>(`/posts?slug=${encodeURIComponent(slug)}&_embed=1`,[]);return rows[0]?toStory(rows[0]):null;}
 export async function getStoriesByCategory(slug:string,limit=18):Promise<{category:Category;stories:Story[]}|null>{
  const category=categoryFromSlug(slug); if(!category)return null;
