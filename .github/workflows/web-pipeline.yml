@@ -33,9 +33,11 @@ jobs:
         env:
           WORDPRESS_READ_URL: https://periodismo360.com
           NEXT_PUBLIC_SITE_URL: https://periodismo360.com
+      - run: npm run security:audit
       - run: npm run qa
         env:
           QA_TYPECHECK_COMMAND: npm run typecheck
+          QA_SECURITY_COMMAND: npm run security:audit
 
   deploy:
     if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.deploy == true)
