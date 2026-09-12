@@ -1,0 +1,7 @@
+import Fastify from "fastify";import{timingSafeEqual}from"node:crypto";
+const app=Fastify({logger:true});
+function auth(v?:string){const e=process.env.WORDPRESS_BRIDGE_TOKEN;if(!e||!v?.startsWith("Bearer "))return false;const a=Buffer.from(e),b=Buffer.from(v.slice(7));return a.length===b.length&&timingSafeEqual(a,b)}
+function config(){const base=process.env.WORDPRESS_SITE_URL,token=process.env.WORDPRESS_AI_INGEST_TOKEN;if(!base||!token)throw new Error("WordPress bridge not configured");return{base:base.replace(/\/$/,""),token}}
+app.get("/health",async()=>({service:"p360-wordpress-bridge",status:"ok",configured:Boolean(process.env.WORDPRESS_SITE_URL&&process.env.WORDPRESS_AI_INGEST_TOKEN),mode:"draft-only"}));
+app.post("/v1/drafts",async(req,reply)=>{if(!auth(req.headers.authorization))return reply.code(401).send({error:"unauthorized"});const body=req.body as any;if(body?.status==="publish")return reply.code(403).send({error:"publish_forbidden"});try{const c=config();const r=await fetch(`${c.base}/wp-json/p360-ai/v1/draft`,{method:"POST",headers:{"content-type":"application/json",authorization:`Bearer ${c.token}`},body:JSON.stringify(body),signal:AbortSignal.timeout(10000)});const data=await r.json();return reply.code(r.status).send(data);}catch(error){req.log.error({err:error,workflowId:body?.workflowId},"wordpress draft bridge failed");return reply.code(502).send({error:"wordpress_bridge_failed"})}});
+app.listen({port:Number(process.env.PORT??3004),host:"0.0.0.0"}).catch(e=>{app.log.error(e);process.exit(1)});
