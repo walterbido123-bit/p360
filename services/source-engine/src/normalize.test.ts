@@ -1,0 +1,3 @@
+import{describe,expect,it}from"vitest";import{canonicalizeUrl,normalizeItem}from"./normalize.js";import type{SourceConfig}from"./types.js";
+const source:SourceConfig={id:"x",name:"X",kind:"rss",url:"https://x.test/feed",publisher:"X",desk:"actualidad",geography:"es",tier:"high",enabled:true,pollMinutes:10};
+describe("normalization",()=>{it("removes tracking parameters",()=>expect(canonicalizeUrl("https://x.test/a?utm_source=z&id=1#top")).toBe("https://x.test/a?id=1"));it("normalizes a source item",()=>{const item=normalizeItem({sourceId:"x",title:"  Titular   real ",url:"https://x.test/a",publishedAt:"2026-09-10T10:00:00Z"},source);expect(item.headline).toBe("Titular real");expect(item.sourceScore).toBeGreaterThanOrEqual(.8)});});

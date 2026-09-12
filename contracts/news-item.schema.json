@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://periodismo360.com/schemas/news-item.schema.json",
+  "title": "Periodismo360 News Item",
+  "type": "object",
+  "required": ["workflowId", "headline", "category", "sources", "status", "quality"],
+  "properties": {
+    "workflowId": { "type": "string", "minLength": 1 },
+    "headline": { "type": "string", "minLength": 10 },
+    "dek": { "type": "string" },
+    "body": { "type": "string" },
+    "category": {
+      "type": "string",
+      "enum": ["nacionales", "economicas", "globales", "deportes", "entretenimiento", "tecnologia", "actualidad"]
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["url", "publisher"],
+        "properties": {
+          "url": { "type": "string", "format": "uri" },
+          "publisher": { "type": "string" },
+          "publishedAt": { "type": ["string", "null"], "format": "date-time" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "quality": {
+      "type": "object",
+      "required": ["confidence", "risk", "duplicateScore"],
+      "properties": {
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "risk": { "type": "string", "enum": ["low", "medium", "high"] },
+        "duplicateScore": { "type": "number", "minimum": 0, "maximum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "status": {
+      "type": "string",
+      "enum": ["ingested", "researching", "draft", "review", "approved", "published", "rejected"]
+    }
+  },
+  "additionalProperties": true
+}
