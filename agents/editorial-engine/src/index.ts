@@ -6,7 +6,13 @@ import { runAgent } from "./runner.js";
 const app = Fastify({ logger:true });
 function authorized(value?:string){const expected=process.env.AGENT_SERVICE_TOKEN;if(!expected||!value?.startsWith("Bearer "))return false;const a=Buffer.from(expected),b=Buffer.from(value.slice(7));return a.length===b.length&&timingSafeEqual(a,b);}
 
-app.get("/health",async()=>({service:"p360-editorial-engine",status:"ok",model:process.env.OPENAI_EDITORIAL_MODEL??"gpt-5.6",configured:Boolean(process.env.OPENAI_API_KEY)}));
+app.get("/health",async()=>({
+  service:"p360-editorial-engine",
+  status:"ok",
+  provider:"anthropic",
+  model:process.env.CLAUDE_EDITORIAL_MODEL??null,
+  configured:Boolean(process.env.ANTHROPIC_API_KEY&&process.env.CLAUDE_EDITORIAL_MODEL)
+}));
 app.post("/v1/agents/:agent",async(request,reply)=>{
   if(!authorized(request.headers.authorization))return reply.code(401).send({error:"unauthorized"});
   const agent=(request.params as {agent:string}).agent;
