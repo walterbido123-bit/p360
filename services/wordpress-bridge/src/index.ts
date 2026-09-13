@@ -1,5 +1,6 @@
 import Fastify from "fastify";
 import { timingSafeEqual } from "node:crypto";
+import sharp from "sharp";
 
 type DraftPayload = {
   workflowId?: string;
@@ -87,8 +88,16 @@ async function generateFeaturedImage(body: DraftPayload, cfg: ReturnType<typeof 
   if (!response.ok || !data) {
     throw new Error(`Image generation failed (${response.status}): ${result.error?.message || "empty image"}`);
   }
+  const normalized = await sharp(Buffer.from(data, "base64"), {
+    failOn: "error",
+    limitInputPixels: 40_000_000,
+  })
+    .rotate()
+    .resize(800, 440, { fit: "cover", position: "attention" })
+    .jpeg({ quality: 88, mozjpeg: true })
+    .toBuffer();
   return {
-    data,
+    data: normalized.toString("base64"),
     mimeType: "image/jpeg",
     filename: `${String(body.workflowId || "p360-news").replace(/[^a-zA-Z0-9_-]/g, "-")}.jpg`,
     alt: String(body.imageAlt || body.headline || "Imagen editorial de Periodismo360").slice(0, 250),
