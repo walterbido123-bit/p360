@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Periodismo360 AI Newsroom
  * Description: Receptor editorial seguro para crear borradores desde la automatización de Periodismo360.
- * Version: 0.4.0
+ * Version: 0.4.1
  * Requires at least: 6.5
  * Requires PHP: 8.1
  */
@@ -62,7 +62,7 @@ final class P360_AI_Newsroom {
     return hash_equals($hash,hash('sha256',trim(substr($header,7))));
   }
   public static function routes() {
-    register_rest_route('p360-ai/v1','/health',['methods'=>'GET','permission_callback'=>'__return_true','callback'=>fn()=>['service'=>'p360-wordpress-control-plane','status'=>'ok','version'=>'0.4.0','mode'=>'draft-only','publishing_enabled'=>false,'featured_image'=>['required'=>true,'width'=>800,'height'=>440]]]);
+    register_rest_route('p360-ai/v1','/health',['methods'=>'GET','permission_callback'=>'__return_true','callback'=>fn()=>['service'=>'p360-wordpress-control-plane','status'=>'ok','version'=>'0.4.1','mode'=>'draft-only','publishing_enabled'=>false,'featured_image'=>['required'=>true,'width'=>800,'height'=>440]]]);
     register_rest_route('p360-ai/v1','/draft',['methods'=>'POST','permission_callback'=>[__CLASS__,'authorized'],'callback'=>[__CLASS__,'create_draft']]);
   }
 
@@ -113,7 +113,8 @@ final class P360_AI_Newsroom {
       return new WP_Error('invalid_featured_image','Featured image must be an approved generated image',['status'=>400]);
     }
     $bytes=base64_decode((string)$image['data'],true);
-    if ($bytes===false || strlen($bytes)<1024 || strlen($bytes)>10*MB_IN_BYTES || !@getimagesizefromstring($bytes)) {
+    $looks_like_image=$bytes!==false && (!function_exists('getimagesizefromstring') || @getimagesizefromstring($bytes));
+    if ($bytes===false || strlen($bytes)<1024 || strlen($bytes)>10*MB_IN_BYTES || !$looks_like_image) {
       return new WP_Error('invalid_featured_image_data','Featured image data is invalid or too large',['status'=>400]);
     }
     $filename=sanitize_file_name($image['filename']??('p360-'.wp_generate_uuid4().'.jpg'));
@@ -143,7 +144,12 @@ final class P360_AI_Newsroom {
     ],$upload['file'],0,true);
     if (is_wp_error($attachment_id)) { @unlink($upload['file']); return $attachment_id; }
     require_once ABSPATH.'wp-admin/includes/image.php';
-    wp_update_attachment_metadata($attachment_id,wp_generate_attachment_metadata($attachment_id,$upload['file']));
+    $metadata=wp_generate_attachment_metadata($attachment_id,$upload['file']);
+    if (is_wp_error($metadata)) {
+      wp_delete_attachment($attachment_id,true);
+      return $metadata;
+    }
+    wp_update_attachment_metadata($attachment_id,$metadata);
     update_post_meta($attachment_id,'_wp_attachment_image_alt',sanitize_text_field($image['alt']??'Imagen editorial'));
     update_post_meta($attachment_id,self::META_PREFIX.'image_generated','yes');
     update_post_meta($attachment_id,self::META_PREFIX.'image_model',sanitize_text_field($image['generationModel']??''));
@@ -151,6 +157,14 @@ final class P360_AI_Newsroom {
   }
 
   public static function create_draft(WP_REST_Request $request) {
+    try {
+      return self::create_draft_internal($request);
+    } catch (Throwable $error) {
+      return new WP_Error('p360_internal_error','The newsroom draft could not be created: '.$error->getMessage(),['status'=>500]);
+    }
+  }
+
+  private static function create_draft_internal(WP_REST_Request $request) {
     $p=$request->get_json_params();
     $sources=self::clean_sources($p['sources']??[]);
     if (empty($p['workflowId']) || empty($p['headline']) || empty($p['body']) || !$sources) return new WP_Error('invalid_payload','Missing required newsroom fields',['status'=>400]);
@@ -180,7 +194,9 @@ final class P360_AI_Newsroom {
     update_post_meta($post_id,self::META_PREFIX.'workflow_id',$workflow_id);
     update_post_meta($post_id,self::META_PREFIX.'source_hash',$source_hash);
     update_post_meta($post_id,self::META_PREFIX.'confidence',(float)($p['quality']['confidence']??0));
-    update_post_meta($post_id,self::META_PREFIX.'risk',sanitize_text_field($p['quality']['risk']??'high'));
+    $risk=$p['quality']['risk']??'high';
+    if (is_array($risk) || is_object($risk)) $risk=wp_json_encode($risk,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
+    update_post_meta($post_id,self::META_PREFIX.'risk',sanitize_textarea_field((string)$risk));
     update_post_meta($post_id,self::META_PREFIX.'duplicate_score',(float)($p['quality']['duplicateScore']??0));
     update_post_meta($post_id,self::META_PREFIX.'sources',$sources);
     update_post_meta($post_id,self::META_PREFIX.'factcheck',(array)($p['factcheck']??[]));
