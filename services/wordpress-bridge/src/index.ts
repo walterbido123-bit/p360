@@ -127,13 +127,23 @@ async function uploadFeaturedImage(
     body: new Uint8Array(image.data),
     signal: AbortSignal.timeout(60_000),
   });
-  const data = (await response.json()) as {
+  const contentType = response.headers.get("content-type") || "";
+  const responseText = await response.text();
+  let data: {
     attachmentId?: number;
     url?: string;
     width?: number;
     height?: number;
     message?: string;
   };
+  try {
+    data = JSON.parse(responseText) as typeof data;
+  } catch {
+    const htmlTitle = responseText.match(/<title[^>]*>([^<]*)<\/title>/i)?.[1]?.trim();
+    throw new Error(
+      `WordPress media upload returned non-JSON (${response.status}, ${contentType || "unknown content type"}, ${response.url})${htmlTitle ? `: ${htmlTitle}` : ""}`,
+    );
+  }
   if (!response.ok || !data.attachmentId) {
     throw new Error(`WordPress media upload failed (${response.status}): ${data.message || "missing attachment ID"}`);
   }
