@@ -21,3 +21,7 @@ rad.json
 *.flf
 #Test results file
 TestResults.xml
+
+# Node.js dependencies
+node_modules/
+dist/
