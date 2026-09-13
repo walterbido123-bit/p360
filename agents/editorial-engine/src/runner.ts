@@ -46,6 +46,11 @@ function requestPayload(request: AgentRequest) {
   return JSON.stringify({ input: request.input, sources: request.sources ?? [] });
 }
 
+export function supportsCustomTemperature(model: string) {
+  const normalized = model.trim().toLowerCase();
+  return !/^(?:gpt-5|o[1-9])(?:[.-]|$)/.test(normalized);
+}
+
 async function callAnthropic(request: AgentRequest, apiKey: string, model: string) {
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -80,6 +85,9 @@ async function callAnthropic(request: AgentRequest, apiKey: string, model: strin
 }
 
 async function callOpenAI(request: AgentRequest, apiKey: string, model: string) {
+  const generationOptions = supportsCustomTemperature(model)
+    ? { temperature: 0.2 }
+    : {};
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -88,7 +96,7 @@ async function callOpenAI(request: AgentRequest, apiKey: string, model: string) 
     },
     body: JSON.stringify({
       model,
-      temperature: 0.2,
+      ...generationOptions,
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: `${prompts[request.agent]}\nReturn one valid JSON object and no markdown.` },
