@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { getProviderStatus } from "./runner.js";
+import { getProviderStatus, supportsCustomTemperature } from "./runner.js";
 
 const original = { ...process.env };
 
@@ -38,5 +38,16 @@ describe("editorial provider selection", () => {
     expect(() => getProviderStatus({ EDITORIAL_PROVIDER: "other" })).toThrow(
       "EDITORIAL_PROVIDER must be auto, anthropic, or openai"
     );
+  });
+});
+
+describe("OpenAI generation options", () => {
+  it("omits custom temperature for GPT-5 and reasoning models", () => {
+    expect(supportsCustomTemperature("gpt-5-mini")).toBe(false);
+    expect(supportsCustomTemperature("o3-mini")).toBe(false);
+  });
+
+  it("keeps editorial temperature for compatible chat models", () => {
+    expect(supportsCustomTemperature("gpt-4.1-mini")).toBe(true);
   });
 });
