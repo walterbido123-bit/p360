@@ -19,6 +19,11 @@ type ImageGenerationResponse = {
   error?: { message?: string };
 };
 
+type WordPressHealth = {
+  mode?: string;
+  featured_image?: { required?: boolean; width?: number; height?: number };
+};
+
 const app = Fastify({ logger: true, bodyLimit: 15 * 1024 * 1024 });
 
 function authorized(value?: string) {
@@ -95,6 +100,23 @@ async function generateFeaturedImage(body: DraftPayload, cfg: ReturnType<typeof 
   };
 }
 
+async function verifyWordPressCapability(cfg: ReturnType<typeof config>) {
+  const response = await fetch(`${cfg.base}/wp-json/p360-ai/v1/health`, {
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (!response.ok) throw new Error(`WordPress health check failed (${response.status})`);
+  const health = (await response.json()) as WordPressHealth;
+  const image = health.featured_image;
+  if (
+    health.mode !== "draft-only" ||
+    image?.required !== true ||
+    image.width !== 800 ||
+    image.height !== 440
+  ) {
+    throw new Error("WordPress does not advertise required 800x440 featured-image support");
+  }
+}
+
 app.get("/health", async () => ({
   service: "p360-wordpress-bridge",
   status: "ok",
@@ -118,6 +140,7 @@ app.post("/v1/drafts", async (request, reply) => {
 
   try {
     const cfg = config();
+    await verifyWordPressCapability(cfg);
     const featuredImage = await generateFeaturedImage(body, cfg);
     const response = await fetch(`${cfg.base}/wp-json/p360-ai/v1/draft`, {
       method: "POST",

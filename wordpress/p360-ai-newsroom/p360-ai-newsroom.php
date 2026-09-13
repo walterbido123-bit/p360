@@ -62,7 +62,7 @@ final class P360_AI_Newsroom {
     return hash_equals($hash,hash('sha256',trim(substr($header,7))));
   }
   public static function routes() {
-    register_rest_route('p360-ai/v1','/health',['methods'=>'GET','permission_callback'=>'__return_true','callback'=>fn()=>['service'=>'p360-wordpress-control-plane','status'=>'ok','mode'=>'draft-only','publishing_enabled'=>false]]);
+    register_rest_route('p360-ai/v1','/health',['methods'=>'GET','permission_callback'=>'__return_true','callback'=>fn()=>['service'=>'p360-wordpress-control-plane','status'=>'ok','version'=>'0.4.0','mode'=>'draft-only','publishing_enabled'=>false,'featured_image'=>['required'=>true,'width'=>800,'height'=>440]]]);
     register_rest_route('p360-ai/v1','/draft',['methods'=>'POST','permission_callback'=>[__CLASS__,'authorized'],'callback'=>[__CLASS__,'create_draft']]);
   }
 
