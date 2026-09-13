@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Periodismo360 AI Newsroom
  * Description: Receptor editorial seguro para crear borradores desde la automatización de Periodismo360.
- * Version: 0.4.1
+ * Version: 0.4.2
  * Requires at least: 6.5
  * Requires PHP: 8.1
  */
@@ -62,7 +62,7 @@ final class P360_AI_Newsroom {
     return hash_equals($hash,hash('sha256',trim(substr($header,7))));
   }
   public static function routes() {
-    register_rest_route('p360-ai/v1','/health',['methods'=>'GET','permission_callback'=>'__return_true','callback'=>fn()=>['service'=>'p360-wordpress-control-plane','status'=>'ok','version'=>'0.4.1','mode'=>'draft-only','publishing_enabled'=>false,'featured_image'=>['required'=>true,'width'=>800,'height'=>440]]]);
+    register_rest_route('p360-ai/v1','/health',['methods'=>'GET','permission_callback'=>'__return_true','callback'=>fn()=>['service'=>'p360-wordpress-control-plane','status'=>'ok','version'=>'0.4.2','mode'=>'draft-only','publishing_enabled'=>false,'featured_image'=>['required'=>true,'width'=>800,'height'=>440]]]);
     register_rest_route('p360-ai/v1','/draft',['methods'=>'POST','permission_callback'=>[__CLASS__,'authorized'],'callback'=>[__CLASS__,'create_draft']]);
   }
 
@@ -122,17 +122,10 @@ final class P360_AI_Newsroom {
     $upload=wp_upload_bits($filename,null,$bytes);
     if (!empty($upload['error'])) return new WP_Error('image_upload_failed',$upload['error'],['status'=>500]);
 
-    $editor=wp_get_image_editor($upload['file']);
-    if (is_wp_error($editor)) { @unlink($upload['file']); return $editor; }
-    $editor->set_quality(88);
-    $resized=$editor->resize(800,440,true);
-    if (is_wp_error($resized)) { @unlink($upload['file']); return $resized; }
-    $saved=$editor->save($upload['file'],'image/jpeg');
-    if (is_wp_error($saved)) { @unlink($upload['file']); return $saved; }
     $dimensions=@getimagesize($upload['file']);
     if (!$dimensions || (int)$dimensions[0]!==800 || (int)$dimensions[1]!==440) {
       @unlink($upload['file']);
-      return new WP_Error('image_dimensions_failed','Featured image could not be normalized to 800x440',['status'=>500]);
+      return new WP_Error('image_dimensions_failed','Featured image must already be normalized to 800x440',['status'=>400]);
     }
 
     $attachment_id=wp_insert_attachment([
@@ -143,12 +136,7 @@ final class P360_AI_Newsroom {
       'post_status'=>'inherit'
     ],$upload['file'],0,true);
     if (is_wp_error($attachment_id)) { @unlink($upload['file']); return $attachment_id; }
-    require_once ABSPATH.'wp-admin/includes/image.php';
-    $metadata=wp_generate_attachment_metadata($attachment_id,$upload['file']);
-    if (is_wp_error($metadata)) {
-      wp_delete_attachment($attachment_id,true);
-      return $metadata;
-    }
+    $metadata=['width'=>800,'height'=>440,'file'=>_wp_relative_upload_path($upload['file']),'sizes'=>[],'image_meta'=>[]];
     wp_update_attachment_metadata($attachment_id,$metadata);
     update_post_meta($attachment_id,'_wp_attachment_image_alt',sanitize_text_field($image['alt']??'Imagen editorial'));
     update_post_meta($attachment_id,self::META_PREFIX.'image_generated','yes');
