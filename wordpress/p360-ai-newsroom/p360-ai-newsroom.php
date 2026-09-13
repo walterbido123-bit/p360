@@ -56,7 +56,7 @@ final class P360_AI_Newsroom {
       register_post_meta('post', self::META_PREFIX.$key, ['type'=>$type,'single'=>true,'show_in_rest'=>in_array($type,['string','number'],true),'auth_callback'=>fn()=>current_user_can('edit_posts')]);
     }
   }
-  private static function authorized(WP_REST_Request $request) {
+  public static function authorized(WP_REST_Request $request) {
     $header = $request->get_header('authorization');
     $hash=(string)get_option(self::TOKEN_HASH_OPTION,'');
     if (!$hash || !$header || stripos($header, 'Bearer ') !== 0) return false;
