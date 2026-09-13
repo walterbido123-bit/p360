@@ -97,7 +97,7 @@ async function generateFeaturedImage(body: DraftPayload, cfg: ReturnType<typeof 
     .jpeg({ quality: 88, mozjpeg: true })
     .toBuffer();
   return {
-    data: normalized.toString("base64"),
+    data: normalized,
     mimeType: "image/jpeg",
     filename: `${String(body.workflowId || "p360-news").replace(/[^a-zA-Z0-9_-]/g, "-")}.jpg`,
     alt: String(body.imageAlt || body.headline || "Imagen editorial de Periodismo360").slice(0, 250),
@@ -106,6 +106,44 @@ async function generateFeaturedImage(body: DraftPayload, cfg: ReturnType<typeof 
     isGenerated: true,
     targetWidth: 800,
     targetHeight: 440,
+  };
+}
+
+async function uploadFeaturedImage(
+  body: DraftPayload,
+  image: Awaited<ReturnType<typeof generateFeaturedImage>>,
+  cfg: ReturnType<typeof config>,
+) {
+  const response = await fetch(`${cfg.base}/wp-json/p360-ai/v1/media`, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${cfg.wordpressToken}`,
+      "content-type": image.mimeType,
+      "x-p360-workflow-id": String(body.workflowId),
+      "x-p360-image-alt-b64": Buffer.from(image.alt, "utf8").toString("base64"),
+      "x-p360-image-caption-b64": Buffer.from(image.caption, "utf8").toString("base64"),
+      "x-p360-image-model-b64": Buffer.from(image.generationModel, "utf8").toString("base64"),
+    },
+    body: new Uint8Array(image.data),
+    signal: AbortSignal.timeout(60_000),
+  });
+  const data = (await response.json()) as {
+    attachmentId?: number;
+    url?: string;
+    width?: number;
+    height?: number;
+    message?: string;
+  };
+  if (!response.ok || !data.attachmentId) {
+    throw new Error(`WordPress media upload failed (${response.status}): ${data.message || "missing attachment ID"}`);
+  }
+  return {
+    attachmentId: data.attachmentId,
+    url: data.url,
+    width: data.width,
+    height: data.height,
+    isGenerated: true,
+    generationModel: image.generationModel,
   };
 }
 
@@ -150,7 +188,8 @@ app.post("/v1/drafts", async (request, reply) => {
   try {
     const cfg = config();
     await verifyWordPressCapability(cfg);
-    const featuredImage = await generateFeaturedImage(body, cfg);
+    const generatedImage = await generateFeaturedImage(body, cfg);
+    const featuredImage = await uploadFeaturedImage(body, generatedImage, cfg);
     const response = await fetch(`${cfg.base}/wp-json/p360-ai/v1/draft`, {
       method: "POST",
       headers: {

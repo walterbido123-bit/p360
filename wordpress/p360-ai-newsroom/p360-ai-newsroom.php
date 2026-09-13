@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Periodismo360 AI Newsroom
  * Description: Receptor editorial seguro para crear borradores desde la automatización de Periodismo360.
- * Version: 0.4.2
+ * Version: 0.4.4
  * Requires at least: 6.5
  * Requires PHP: 8.1
  */
@@ -12,6 +12,7 @@ final class P360_AI_Newsroom {
   const META_PREFIX = '_p360_ai_';
   const TOKEN_HASH_OPTION = 'p360_ai_ingest_token_hash';
   const TOKEN_NOTICE_TRANSIENT = 'p360_ai_new_token_notice';
+  const CHECKPOINT_OPTION = 'p360_ai_last_checkpoint';
 
   private static $categories = [
     'nacionales'=>['name'=>'Nacionales','slugs'=>['nacionales']],
@@ -62,7 +63,8 @@ final class P360_AI_Newsroom {
     return hash_equals($hash,hash('sha256',trim(substr($header,7))));
   }
   public static function routes() {
-    register_rest_route('p360-ai/v1','/health',['methods'=>'GET','permission_callback'=>'__return_true','callback'=>fn()=>['service'=>'p360-wordpress-control-plane','status'=>'ok','version'=>'0.4.2','mode'=>'draft-only','publishing_enabled'=>false,'featured_image'=>['required'=>true,'width'=>800,'height'=>440]]]);
+    register_rest_route('p360-ai/v1','/health',['methods'=>'GET','permission_callback'=>'__return_true','callback'=>fn()=>['service'=>'p360-wordpress-control-plane','status'=>'ok','version'=>'0.4.4','mode'=>'draft-only','publishing_enabled'=>false,'featured_image'=>['required'=>true,'width'=>800,'height'=>440,'transport'=>'binary-first']]]);
+    register_rest_route('p360-ai/v1','/media',['methods'=>'POST','permission_callback'=>[__CLASS__,'authorized'],'callback'=>[__CLASS__,'upload_media']]);
     register_rest_route('p360-ai/v1','/draft',['methods'=>'POST','permission_callback'=>[__CLASS__,'authorized'],'callback'=>[__CLASS__,'create_draft']]);
   }
 
@@ -104,70 +106,111 @@ final class P360_AI_Newsroom {
     return (int)$user->ID;
   }
 
-  private static function create_featured_image($image) {
-    if (!is_array($image) || empty($image['data']) || empty($image['mimeType'])) {
+  private static function checkpoint($value) {
+    update_option(self::CHECKPOINT_OPTION,sanitize_text_field((string)$value),false);
+  }
+
+  private static function decode_header($request,$name) {
+    $value=(string)$request->get_header($name);
+    if (!$value) return '';
+    $decoded=base64_decode($value,true);
+    return $decoded===false?'':$decoded;
+  }
+
+  public static function upload_media(WP_REST_Request $request) {
+    try {
+      self::checkpoint('media_callback_started');
+      $workflow_id=sanitize_text_field((string)$request->get_header('x-p360-workflow-id'));
+      if (!$workflow_id) return new WP_Error('missing_workflow_id','A workflow ID is required',['status'=>400]);
+      $existing=get_posts(['post_type'=>'attachment','post_status'=>'inherit','fields'=>'ids','posts_per_page'=>1,'meta_key'=>self::META_PREFIX.'workflow_id','meta_value'=>$workflow_id]);
+      if ($existing) {
+        $metadata=wp_get_attachment_metadata($existing[0]);
+        return new WP_REST_Response(['status'=>'existing','attachmentId'=>(int)$existing[0],'url'=>wp_get_attachment_url($existing[0]),'width'=>(int)($metadata['width']??0),'height'=>(int)($metadata['height']??0)],200);
+      }
+      $mime=sanitize_mime_type((string)$request->get_header('content-type'));
+      $bytes=$request->get_body();
+      if ($mime!=='image/jpeg' || !$bytes || strlen($bytes)<1024 || strlen($bytes)>3*MB_IN_BYTES) {
+        return new WP_Error('invalid_featured_image_data','Featured image must be a JPEG under 3 MB',['status'=>400]);
+      }
+      self::checkpoint('media_body_received');
+      $dimensions=function_exists('getimagesizefromstring')?@getimagesizefromstring($bytes):false;
+      if (!$dimensions || (int)$dimensions[0]!==800 || (int)$dimensions[1]!==440) {
+        return new WP_Error('image_dimensions_failed','Featured image must be exactly 800x440',['status'=>400]);
+      }
+      $filename='p360-'.sanitize_file_name($workflow_id).'.jpg';
+      $upload=wp_upload_bits($filename,null,$bytes);
+      if (!empty($upload['error'])) return new WP_Error('image_upload_failed',$upload['error'],['status'=>500]);
+      self::checkpoint('media_file_written');
+      $alt=sanitize_text_field(self::decode_header($request,'x-p360-image-alt-b64'));
+      $caption=sanitize_text_field(self::decode_header($request,'x-p360-image-caption-b64'));
+      $model=sanitize_text_field(self::decode_header($request,'x-p360-image-model-b64'));
+      $attachment_id=wp_insert_attachment([
+        'post_mime_type'=>'image/jpeg',
+        'post_title'=>$alt?:'Imagen editorial',
+        'post_excerpt'=>$caption?:'Imagen generada con inteligencia artificial para fines ilustrativos.',
+        'post_content'=>'',
+        'post_status'=>'inherit'
+      ],$upload['file'],0,true);
+      if (is_wp_error($attachment_id)) { @unlink($upload['file']); return $attachment_id; }
+      self::checkpoint('media_attachment_inserted');
+      wp_update_attachment_metadata($attachment_id,['width'=>800,'height'=>440,'file'=>_wp_relative_upload_path($upload['file']),'sizes'=>[],'image_meta'=>[]]);
+      update_post_meta($attachment_id,'_wp_attachment_image_alt',$alt?:'Imagen editorial');
+      update_post_meta($attachment_id,self::META_PREFIX.'image_generated','yes');
+      update_post_meta($attachment_id,self::META_PREFIX.'image_model',$model);
+      update_post_meta($attachment_id,self::META_PREFIX.'workflow_id',$workflow_id);
+      self::checkpoint('media_saved');
+      return new WP_REST_Response(['status'=>'created','attachmentId'=>(int)$attachment_id,'url'=>wp_get_attachment_url($attachment_id),'width'=>800,'height'=>440],201);
+    } catch (Throwable $error) {
+      self::checkpoint('media_error_'.get_class($error).'_'.$error->getMessage());
+      return new WP_Error('p360_media_error','The generated image could not be stored: '.$error->getMessage(),['status'=>500]);
+    }
+  }
+
+  private static function resolve_featured_image($image,$workflow_id) {
+    self::checkpoint('image_reference_started');
+    if (!is_array($image) || empty($image['attachmentId'])) {
       return new WP_Error('missing_featured_image','A generated featured image is required',['status'=>400]);
     }
-    $mime=sanitize_mime_type($image['mimeType']);
-    if (!in_array($mime,['image/jpeg','image/png','image/webp'],true) || empty($image['isGenerated'])) {
-      return new WP_Error('invalid_featured_image','Featured image must be an approved generated image',['status'=>400]);
-    }
-    $bytes=base64_decode((string)$image['data'],true);
-    $looks_like_image=$bytes!==false && (!function_exists('getimagesizefromstring') || @getimagesizefromstring($bytes));
-    if ($bytes===false || strlen($bytes)<1024 || strlen($bytes)>10*MB_IN_BYTES || !$looks_like_image) {
-      return new WP_Error('invalid_featured_image_data','Featured image data is invalid or too large',['status'=>400]);
-    }
-    $filename=sanitize_file_name($image['filename']??('p360-'.wp_generate_uuid4().'.jpg'));
-    $filename=pathinfo($filename,PATHINFO_FILENAME).'.jpg';
-    $upload=wp_upload_bits($filename,null,$bytes);
-    if (!empty($upload['error'])) return new WP_Error('image_upload_failed',$upload['error'],['status'=>500]);
-
-    $dimensions=@getimagesize($upload['file']);
-    if (!$dimensions || (int)$dimensions[0]!==800 || (int)$dimensions[1]!==440) {
-      @unlink($upload['file']);
-      return new WP_Error('image_dimensions_failed','Featured image must already be normalized to 800x440',['status'=>400]);
-    }
-
-    $attachment_id=wp_insert_attachment([
-      'post_mime_type'=>'image/jpeg',
-      'post_title'=>sanitize_text_field($image['alt']??'Imagen editorial'),
-      'post_excerpt'=>sanitize_text_field($image['caption']??'Imagen generada con inteligencia artificial para fines ilustrativos.'),
-      'post_content'=>'',
-      'post_status'=>'inherit'
-    ],$upload['file'],0,true);
-    if (is_wp_error($attachment_id)) { @unlink($upload['file']); return $attachment_id; }
-    $metadata=['width'=>800,'height'=>440,'file'=>_wp_relative_upload_path($upload['file']),'sizes'=>[],'image_meta'=>[]];
-    wp_update_attachment_metadata($attachment_id,$metadata);
-    update_post_meta($attachment_id,'_wp_attachment_image_alt',sanitize_text_field($image['alt']??'Imagen editorial'));
-    update_post_meta($attachment_id,self::META_PREFIX.'image_generated','yes');
-    update_post_meta($attachment_id,self::META_PREFIX.'image_model',sanitize_text_field($image['generationModel']??''));
-    return ['id'=>(int)$attachment_id,'width'=>800,'height'=>440,'url'=>wp_get_attachment_url($attachment_id)];
+    $attachment_id=(int)$image['attachmentId'];
+    if (get_post_type($attachment_id)!=='attachment' || get_post_mime_type($attachment_id)!=='image/jpeg') return new WP_Error('invalid_featured_image','Featured image attachment is invalid',['status'=>400]);
+    if (get_post_meta($attachment_id,self::META_PREFIX.'workflow_id',true)!==$workflow_id || get_post_meta($attachment_id,self::META_PREFIX.'image_generated',true)!=='yes') return new WP_Error('invalid_featured_image_owner','Featured image does not belong to this workflow',['status'=>400]);
+    $metadata=wp_get_attachment_metadata($attachment_id);
+    if ((int)($metadata['width']??0)!==800 || (int)($metadata['height']??0)!==440) return new WP_Error('image_dimensions_failed','Featured image must be exactly 800x440',['status'=>400]);
+    self::checkpoint('image_reference_verified');
+    return ['id'=>$attachment_id,'width'=>800,'height'=>440,'url'=>wp_get_attachment_url($attachment_id)];
   }
 
   public static function create_draft(WP_REST_Request $request) {
     try {
+      self::checkpoint('callback_started');
       return self::create_draft_internal($request);
     } catch (Throwable $error) {
+      self::checkpoint('error_'.get_class($error).'_'.$error->getMessage());
       return new WP_Error('p360_internal_error','The newsroom draft could not be created: '.$error->getMessage(),['status'=>500]);
     }
   }
 
   private static function create_draft_internal(WP_REST_Request $request) {
     $p=$request->get_json_params();
+    self::checkpoint('payload_decoded');
     $sources=self::clean_sources($p['sources']??[]);
     if (empty($p['workflowId']) || empty($p['headline']) || empty($p['body']) || !$sources) return new WP_Error('invalid_payload','Missing required newsroom fields',['status'=>400]);
     $workflow_id=sanitize_text_field($p['workflowId']);
     $source_hash=hash('sha256',strtolower($sources[0]['url']));
     $existing=get_posts(['post_type'=>'post','post_status'=>'any','fields'=>'ids','posts_per_page'=>1,'meta_query'=>['relation'=>'OR',['key'=>self::META_PREFIX.'workflow_id','value'=>$workflow_id],['key'=>self::META_PREFIX.'source_hash','value'=>$source_hash]]]);
     if ($existing) return new WP_REST_Response(['status'=>'duplicate','postId'=>$existing[0]],200);
+    self::checkpoint('dedupe_checked');
 
     $category_id=self::resolve_category($p['category']??'');
     if (is_wp_error($category_id)) return $category_id;
+    self::checkpoint('category_resolved');
     $author_id=self::resolve_author($p['authorLogin']??'');
     if (is_wp_error($author_id)) return $author_id;
+    self::checkpoint('author_resolved');
 
-    $featured=self::create_featured_image($p['featuredImage']??null);
+    $featured=self::resolve_featured_image($p['featuredImage']??null,$workflow_id);
     if (is_wp_error($featured)) return $featured;
+    self::checkpoint('featured_image_ready');
 
     $seo=is_array($p['seo']??null)?$p['seo']:[];
     $source_note='<hr><p><strong>Fuente primaria:</strong> <a href="'.esc_url($sources[0]['url']).'" rel="noopener noreferrer">'.esc_html($sources[0]['publisher']).'</a>';
@@ -177,6 +220,7 @@ final class P360_AI_Newsroom {
     if (!empty($seo['slug'])) $postarr['post_name']=sanitize_title($seo['slug']);
     $post_id=wp_insert_post($postarr,true);
     if (is_wp_error($post_id)) { wp_delete_attachment($featured['id'],true); return $post_id; }
+    self::checkpoint('post_inserted');
     wp_update_post(['ID'=>$featured['id'],'post_parent'=>$post_id]);
     set_post_thumbnail($post_id,$featured['id']);
     update_post_meta($post_id,self::META_PREFIX.'workflow_id',$workflow_id);
@@ -195,6 +239,7 @@ final class P360_AI_Newsroom {
     if (!empty($seo['seoTitle'])) update_post_meta($post_id,'_yoast_wpseo_title',sanitize_text_field($seo['seoTitle']));
     if (!empty($seo['metaDescription'])) update_post_meta($post_id,'_yoast_wpseo_metadesc',sanitize_text_field($seo['metaDescription']));
     if (!empty($seo['focusKeyphrase'])) update_post_meta($post_id,'_yoast_wpseo_focuskw',sanitize_text_field($seo['focusKeyphrase']));
+    self::checkpoint('draft_created');
     return new WP_REST_Response(['status'=>'draft','postId'=>$post_id,'reviewUrl'=>get_edit_post_link($post_id,'raw'),'sourceUrl'=>$sources[0]['url'],'categoryId'=>$category_id,'authorId'=>$author_id,'featuredMediaId'=>$featured['id'],'featuredImage'=>['url'=>$featured['url'],'width'=>$featured['width'],'height'=>$featured['height']]],201);
   }
   public static function meta_box() { add_meta_box('p360-ai-review','Periodismo360 AI Newsroom',[__CLASS__,'render_meta_box'],'post','side','high'); }
