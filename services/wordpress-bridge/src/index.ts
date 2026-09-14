@@ -109,7 +109,44 @@ async function generateFeaturedImage(body: DraftPayload, cfg: ReturnType<typeof 
   };
 }
 
-async function uploadFeaturedImage(
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function confidenceScore(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return Math.max(0, Math.min(1, value > 1 ? value / 100 : value));
+  }
+  if (typeof value === "string") {
+    const numeric = Number(value.replace(",", "."));
+    if (Number.isFinite(numeric)) return Math.max(0, Math.min(1, numeric > 1 ? numeric / 100 : numeric));
+    const normalized = value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+    const labels: Record<string, number> = {
+      alta: 0.9, alto: 0.9, high: 0.9,
+      media: 0.65, medio: 0.65, medium: 0.65,
+      baja: 0.35, bajo: 0.35, low: 0.35,
+    };
+    return labels[normalized];
+  }
+  const object = asRecord(value);
+  if (Object.keys(object).length) {
+    return confidenceScore(object.score ?? object.value ?? object.level ?? object.confidence);
+  }
+  return undefined;
+}
+
+function withNumericConfidence(body: DraftPayload): DraftPayload {
+  const quality = asRecord(body.quality);
+  const factcheck = asRecord(body.factcheck);
+  const confidence = confidenceScore(
+    quality.confidence ?? factcheck.confidence ?? body.confidence,
+  ) ?? 0.5;
+  return { ...body, quality: { ...quality, confidence } };
+}
+\nasync function uploadFeaturedImage(
   body: DraftPayload,
   image: Awaited<ReturnType<typeof generateFeaturedImage>>,
   cfg: ReturnType<typeof config>,
@@ -197,16 +234,17 @@ app.post("/v1/drafts", async (request, reply) => {
 
   try {
     const cfg = config();
+    const normalizedBody = withNumericConfidence(body);
     await verifyWordPressCapability(cfg);
-    const generatedImage = await generateFeaturedImage(body, cfg);
-    const featuredImage = await uploadFeaturedImage(body, generatedImage, cfg);
+    const generatedImage = await generateFeaturedImage(normalizedBody, cfg);
+    const featuredImage = await uploadFeaturedImage(normalizedBody, generatedImage, cfg);
     const response = await fetch(`${cfg.base}/wp-json/p360-ai/v1/draft`, {
       method: "POST",
       headers: {
         "content-type": "application/json",
         authorization: `Bearer ${cfg.wordpressToken}`,
       },
-      body: JSON.stringify({ ...body, status: "draft", featuredImage }),
+      body: JSON.stringify({ ...normalizedBody, status: "draft", featuredImage }),
       signal: AbortSignal.timeout(60_000),
     });
     const data = await response.json();
