@@ -146,7 +146,8 @@ function withNumericConfidence(body: DraftPayload): DraftPayload {
   ) ?? 0.5;
   return { ...body, quality: { ...quality, confidence } };
 }
-\nasync function uploadFeaturedImage(
+
+async function uploadFeaturedImage(
   body: DraftPayload,
   image: Awaited<ReturnType<typeof generateFeaturedImage>>,
   cfg: ReturnType<typeof config>,
