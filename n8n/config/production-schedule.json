@@ -1,0 +1,158 @@
+{
+  "name": "Periodismo360 AI Newsroom - Production Schedule",
+  "timezone": "America/Santo_Domingo",
+  "schedule": {
+    "cron": "0 6,12,18 * * *",
+    "times": [
+      "06:00",
+      "12:00",
+      "18:00"
+    ],
+    "runsPerDay": 3
+  },
+  "safety": {
+    "wordpressStatus": "draft",
+    "publishingEnabled": false,
+    "humanReviewRequired": true,
+    "featuredImage": {
+      "required": true,
+      "width": 800,
+      "height": 440
+    }
+  },
+  "execution": {
+    "ingestAllSectionsEveryRun": true,
+    "createOnlyWhenNewVerifiedContentExists": true,
+    "maxDraftsPerSectionPerRun": 1,
+    "deduplication": [
+      "canonical_url",
+      "source_fingerprint",
+      "semantic_similarity",
+      "workflow_id"
+    ],
+    "idempotency": "one WordPress draft and one generated image per workflow_id"
+  },
+  "sections": [
+    {
+      "canonical": "nacionales",
+      "label": "Nacionales / República Dominicana",
+      "priorities": [
+        "actualidad",
+        "política",
+        "economía",
+        "sociedad",
+        "emergencias"
+      ],
+      "sources": [
+        "Presidencia de la República Dominicana",
+        "ministerios y organismos oficiales RD",
+        "Banco Central de la República Dominicana",
+        "Oficina Nacional de Estadística",
+        "Congreso Nacional",
+        "Procuraduría General",
+        "Policía Nacional",
+        "Centro de Operaciones de Emergencias",
+        "Diario Libre",
+        "Listín Diario",
+        "El Caribe",
+        "Agencia EFE",
+        "Associated Press"
+      ]
+    },
+    {
+      "canonical": "globales",
+      "label": "Globales / Internacionales",
+      "priorities": [
+        "política internacional",
+        "economía mundial",
+        "conflictos",
+        "ciencia",
+        "clima"
+      ],
+      "sources": [
+        "Reuters",
+        "Associated Press",
+        "Agencia EFE",
+        "BBC News",
+        "Naciones Unidas",
+        "Unión Europea",
+        "gobiernos y organismos oficiales"
+      ]
+    },
+    {
+      "canonical": "deportes",
+      "label": "Deportes",
+      "priorities": [
+        "MLB",
+        "NBA",
+        "NFL",
+        "LaLiga",
+        "Premier League",
+        "Ligue 1",
+        "Bundesliga",
+        "Fórmula 1"
+      ],
+      "sources": [
+        "MLB",
+        "NBA",
+        "NFL",
+        "LaLiga",
+        "Premier League",
+        "Ligue 1",
+        "Bundesliga",
+        "FIA Formula One World Championship",
+        "Reuters",
+        "Associated Press",
+        "Agencia EFE",
+        "ESPN"
+      ]
+    },
+    {
+      "canonical": "tecnologia",
+      "wordpressSlug": "tech",
+      "label": "Tecnología",
+      "priorities": [
+        "inteligencia artificial",
+        "automatización",
+        "ciberseguridad",
+        "software",
+        "ciencia"
+      ],
+      "sources": [
+        "OpenAI",
+        "Anthropic",
+        "Google DeepMind",
+        "Microsoft",
+        "Meta AI",
+        "NVIDIA",
+        "documentación y blogs oficiales",
+        "artículos científicos originales",
+        "Reuters",
+        "Associated Press"
+      ]
+    }
+  ],
+  "sourceRules": {
+    "requireCanonicalUrl": true,
+    "requirePublicationDate": true,
+    "requirePublisher": true,
+    "requireFullArticleExtraction": true,
+    "capture": [
+      "headline",
+      "body",
+      "publication_date",
+      "authors",
+      "named_entities",
+      "figures",
+      "image_or_video_credits"
+    ],
+    "corroborateHighRiskClaimsWithIndependentSource": true,
+    "reject": [
+      "fuentes anónimas no corroboradas",
+      "agregadores sin procedencia",
+      "contenido sin fecha",
+      "copias duplicadas",
+      "rumores de redes sociales sin confirmación"
+    ]
+  }
+}
